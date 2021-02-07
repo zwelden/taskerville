@@ -3,16 +3,19 @@ defmodule Taskerville do
   Documentation for `Taskerville`.
   """
 
-  @doc """
-  Hello world.
+  require Logger
 
-  ## Examples
+  def start do
+    Logger.info("Starting Taskerville...")
+    Taskerville.Supervisor.start_link()
+  end
 
-      iex> Taskerville.hello()
-      :world
+  def schedule(chron_str, name, func) do
+    Taskerville.Scheduler.Server.schedule_task(chron_str, name, func)
+    :ok
+  end
 
-  """
-  def hello do
-    :world
+  def get_scheduled_items do
+    Taskerville.Scheduler.Server.get_scheduled_items()
   end
 end
