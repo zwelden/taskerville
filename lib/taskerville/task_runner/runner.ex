@@ -6,19 +6,29 @@ defmodule Taskerville.TaskRunner.Runner do
 
   # Client Functions
 
-  def start_link(func) do
-    GenServer.start_link(__MODULE__, func)
+  def start_link({task_name, task_def}) do
+    GenServer.start_link(__MODULE__, {task_name, task_def})
   end
 
   # Server Functions
 
-  def init(func) do
-    {:ok, [], {:continue, func}}
+  def init({task_name, {func, args}}) do
+    {:ok, [], {:continue, {task_name, {func, args}}}}
   end
 
-  def handle_continue(func, state) do
-    func.()
-    Manager.task_completed(self())
+  def init({task_name, {mod, func, args}}) do
+    {:ok, [], {:continue, {task_name, {mod, func, args}}}}
+  end
+
+  def handle_continue({task_name, {func, args}}, state) do
+    apply(func, args)
+    Manager.task_completed(task_name, self())
+    {:stop, :normal, state}
+  end
+
+  def handle_continue({task_name, {mod, func, args}}, state) do
+    apply(mod, func, args)
+    Manager.task_completed(task_name, self())
     {:stop, :normal, state}
   end
 end

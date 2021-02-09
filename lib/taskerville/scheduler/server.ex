@@ -10,7 +10,7 @@ defmodule Taskerville.Scheduler.Server do
 
   defmodule ScheduleItem do
     @enforce_keys [:interval, :task_name, :func]
-    defstruct [:interval, :task_name, :func]
+    defstruct [:interval, :task_name, :func, max_concurrent: 0]
   end
 
   # Client Functions
@@ -19,8 +19,8 @@ defmodule Taskerville.Scheduler.Server do
     GenServer.start_link(__MODULE__, [], name: @name)
   end
 
-  def schedule_task(interval, task_name, func) do
-    GenServer.cast @name, {:schedule, interval, task_name, func}
+  def schedule_task(interval, task_name, max_concurrent, func) do
+    GenServer.cast @name, {:schedule, interval, task_name, max_concurrent, func}
   end
 
   def get_scheduled_items do
@@ -34,8 +34,8 @@ defmodule Taskerville.Scheduler.Server do
     {:ok, state}
   end
 
-  def handle_cast({:schedule, interval, task_name, func}, state) do
-    schedule_item = %ScheduleItem{interval: interval, task_name: task_name, func: func}
+  def handle_cast({:schedule, interval, task_name, max_concurrent, func}, state) do
+    schedule_item = %ScheduleItem{interval: interval, task_name: task_name, func: func, max_concurrent: max_concurrent}
     state = [schedule_item | state]
     {:noreply, state}
   end
@@ -78,7 +78,7 @@ defmodule Taskerville.Scheduler.Server do
   end
 
   defp run_task(schedule_item) do
-    TaskRunner.Manager.run(schedule_item.task_name, schedule_item.func)
+    TaskRunner.Manager.run(schedule_item.task_name, schedule_item.max_concurrent, schedule_item.func)
   end
 
   defp schedule_next_evaluation do

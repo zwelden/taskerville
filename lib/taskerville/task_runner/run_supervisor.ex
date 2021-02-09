@@ -8,8 +8,8 @@ defmodule Taskerville.TaskRunner.RunSupervisor do
     DynamicSupervisor.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
-  def start_child(func) do
-    spec = {Runner, func}
+  def start_child({task_name, task_def}) do
+    spec = {Runner, {task_name, task_def}}
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
