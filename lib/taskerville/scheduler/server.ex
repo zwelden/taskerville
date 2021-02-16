@@ -55,9 +55,6 @@ defmodule Taskerville.Scheduler.Server do
       {:error, error_reason} ->
         Logger.warn("Unable to schedule item. task name: #{task_name}, reason: #{error_reason}")
         {:noreply, state}
-      _ ->
-        Logger.warn("Unable to schedule item for an unknown reason. task name: #{task_name}")
-        {:noreply, state}
     end
   end
 
