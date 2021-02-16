@@ -10,12 +10,23 @@ defmodule Taskerville.Scheduler.Server do
 
   use GenServer
 
+
+  @doc """
+  ex:
+  %Taskerville.Scheduler.Server.ScheduleItem{
+    crontab: ~e[* * * * * *],
+    func: {Kernel, :is_atom, [:frank]},
+    max_concurrent: 4,
+    task_name: "atom_tester"
+  }
+  """
   defmodule ScheduleItem do
     @enforce_keys [:crontab, :task_name, :func]
     defstruct [:crontab, :task_name, :func, max_concurrent: 0]
   end
 
   # Client Functions
+
   def start_link(_args) do
     Logger.info("Starting the Scheduler Server...")
     GenServer.start_link(__MODULE__, [], name: @name)
@@ -37,10 +48,17 @@ defmodule Taskerville.Scheduler.Server do
   end
 
   def handle_cast({:schedule, chron_str, task_name, max_concurrent, func}, state) do
-    {:ok, crontab} = CronParser.parse(chron_str)
-    schedule_item = %ScheduleItem{crontab: crontab, task_name: task_name, func: func, max_concurrent: max_concurrent}
-    state = [schedule_item | state]
-    {:noreply, state}
+    case CronParser.parse(chron_str) do
+      {:ok, crontab} ->
+        schedule_item = %ScheduleItem{crontab: crontab, task_name: task_name, func: func, max_concurrent: max_concurrent}
+        {:noreply, [schedule_item | state]}
+      {:error, error_reason} ->
+        Logger.warn("Unable to schedule item. task name: #{task_name}, reason: #{error_reason}")
+        {:noreply, state}
+      _ ->
+        Logger.warn("Unable to schedule item for an unknown reason. task name: #{task_name}")
+        {:noreply, state}
+    end
   end
 
   def handle_call(:get_scheduled_items, _from, state) do
