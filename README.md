@@ -26,7 +26,7 @@ iex> Taskerville.start()
 ```
 
 #### Schedule a task 
-Tasks can be either a simple anomous function or a tuple of {Module, Function, \[args\]}
+Tasks can be either a simple anonymous function or a tuple of {Module, Function, \[args\]}
 
 ```elixir 
 # A task that runs every minute, named "atom_tester", with any number of 
