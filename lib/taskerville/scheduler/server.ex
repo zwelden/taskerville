@@ -5,12 +5,14 @@ defmodule Taskerville.Scheduler.Server do
   require Logger
 
   alias Taskerville.TaskRunner
+  alias Crontab.CronExpression.Parser, as: CronParser
+  alias Crontab.DateChecker, as: CronDate
 
   use GenServer
 
   defmodule ScheduleItem do
-    @enforce_keys [:interval, :task_name, :func]
-    defstruct [:interval, :task_name, :func, max_concurrent: 0]
+    @enforce_keys [:crontab, :task_name, :func]
+    defstruct [:crontab, :task_name, :func, max_concurrent: 0]
   end
 
   # Client Functions
@@ -19,8 +21,8 @@ defmodule Taskerville.Scheduler.Server do
     GenServer.start_link(__MODULE__, [], name: @name)
   end
 
-  def schedule_task(interval, task_name, max_concurrent, func) do
-    GenServer.cast @name, {:schedule, interval, task_name, max_concurrent, func}
+  def schedule_task(chron_str, task_name, max_concurrent, func) do
+    GenServer.cast @name, {:schedule, chron_str, task_name, max_concurrent, func}
   end
 
   def get_scheduled_items do
@@ -34,8 +36,9 @@ defmodule Taskerville.Scheduler.Server do
     {:ok, state}
   end
 
-  def handle_cast({:schedule, interval, task_name, max_concurrent, func}, state) do
-    schedule_item = %ScheduleItem{interval: interval, task_name: task_name, func: func, max_concurrent: max_concurrent}
+  def handle_cast({:schedule, chron_str, task_name, max_concurrent, func}, state) do
+    {:ok, crontab} = CronParser.parse(chron_str)
+    schedule_item = %ScheduleItem{crontab: crontab, task_name: task_name, func: func, max_concurrent: max_concurrent}
     state = [schedule_item | state]
     {:noreply, state}
   end
@@ -56,25 +59,15 @@ defmodule Taskerville.Scheduler.Server do
   end
 
   defp evaluate_tasks_to_run(state) do
-    current_time = DateTime.utc_now() |> DateTime.to_unix()
+    current_time = NaiveDateTime.local_now()
     state
       |> Enum.each(&(can_run_task(&1, current_time)))
   end
 
   defp can_run_task(schedule_item, current_time) do
-    interval = schedule_item.interval
-    current_time = div(current_time, 10) * 10 # ensure seconds end in 0
-    case interval do
-      :minute ->
-        run_task(schedule_item)
-      :minutes_5 ->
-        if rem(current_time, 5 * 60) == 0, do: run_task(schedule_item)
-      :minutes_10 ->
-        if rem(current_time, 10 * 60) == 0, do: run_task(schedule_item)
-      _ ->
-        Logger.warn("an invalid interval was submitted: #{interval}")
-    end
+    crontab = schedule_item.crontab
 
+    if CronDate.matches_date?(crontab, current_time) == true, do: run_task(schedule_item)
   end
 
   defp run_task(schedule_item) do
